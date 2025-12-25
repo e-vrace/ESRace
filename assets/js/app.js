@@ -91,12 +91,20 @@ async function loadEvent(event) {
     ];
 
     const results = await Promise.all(
-      allUsers.map(id => fetchUserRaceStat(id))
+      allUsers.map(async id => {
+        try {
+          return await fetchUserRaceStat(id);
+        } catch (err) {
+          console.error(`Failed to fetch stats for user ${id}:`, err);
+          return null; 
+        }
+      })
     );
 
+    const validResults = results.filter(r => r !== null);
     const runners = [];
 
-    results.forEach(userData => {
+    validResults.forEach(userData => {
       const raceData = userData[event.raceId];
       if (!raceData || !raceData.statistic_user) return;
 
@@ -116,10 +124,17 @@ async function loadEvent(event) {
     ];
 
     const whitelistedresults = await Promise.all(
-      whitelistedUsers.map(id => fetchUserRaceStat(id))
+      allUsers.map(async id => {
+        try {
+          return await fetchUserRaceStat(id);
+        } catch (err) {
+          console.error(`Failed to fetch stats for user ${id}:`, err);
+          return null; 
+        }
+      })
     );
-
-    whitelistedresults.forEach(userData => {
+    const validwhitelistedresults = results.filter(r => r !== null);
+    validwhitelistedresults.forEach(userData => {
       const raceData = userData[event.raceId];
       if (!raceData || !raceData.statistic_user) return;
 
