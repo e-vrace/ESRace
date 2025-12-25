@@ -53,6 +53,7 @@ function startCountdown(fromTime, endTime) {
 
 
 function renderEvents() {
+  const EVENTS = window.RACE_CONFIGS;
   EVENTS.forEach(event => {
     const btn = document.createElement("button");
     btn.textContent = event.name;
@@ -63,14 +64,34 @@ function renderEvents() {
   });
 }
 
+function isUserWhitelisted(event, userId) {
+  console.log(event.whitelist);
+  console.log(userId);
+  if (!event || !Array.isArray(event.whitelist)) return false;
+
+  const uid = String(userId).trim();
+
+  for (let i = 0; i < event.whitelist.length; i++) {
+    const wid = String(event.whitelist[i]).trim();
+    if (wid === uid) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function loadEvent(event) {
   eventTitleEl.textContent = event.name;
   leaderboardEl.innerHTML = "⏳ Loading...";
 
   try {
     // Fetch all users IN PARALLEL
+    const allUsers = [
+      ...event.members
+    ];
+
     const results = await Promise.all(
-      event.members.map(id => fetchUserRaceStat(id))
+      allUsers.map(id => fetchUserRaceStat(id))
     );
 
     const runners = [];
@@ -80,13 +101,36 @@ async function loadEvent(event) {
       if (!raceData || !raceData.statistic_user) return;
 
       const u = raceData.statistic_user;
-
       runners.push({
-        name: u.user_name,
-        avatar: u.avatar,
+        name: DOMPurify.sanitize(u.user_name, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }),
+        avatar: sanitizeURL(u.avatar),
         totalKm: Number(u.total_km_achieve),
         ranking: u.ranking,
-        pace: u.avg_pace
+        pace: u.avg_pace,
+        isCompetitive: true
+      });
+    });
+
+    const whitelistedUsers = [
+      ...(event.whitelist || [])
+    ];
+
+    const whitelistedresults = await Promise.all(
+      whitelistedUsers.map(id => fetchUserRaceStat(id))
+    );
+
+    whitelistedresults.forEach(userData => {
+      const raceData = userData[event.raceId];
+      if (!raceData || !raceData.statistic_user) return;
+
+      const u = raceData.statistic_user;
+      runners.push({
+        name: DOMPurify.sanitize(u.user_name, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }),
+        avatar: sanitizeURL(u.avatar),
+        totalKm: Number(u.total_km_achieve),
+        ranking: u.ranking,
+        pace: u.avg_pace,
+        isCompetitive: false
       });
     });
 
@@ -111,30 +155,84 @@ async function loadEvent(event) {
 }
 
 function renderLeaderboard(runners) {
-  if (runners.length === 0) {
-    leaderboardEl.innerHTML = "No data";
+  if (!runners || runners.length === 0) {
+    leaderboardEl.textContent = "No data";
     return;
   }
 
-  leaderboardEl.innerHTML = runners.map((r, i) => `
-    <div class="bg-white rounded shadow p-4 flex items-center gap-4">
-      <div class="font-bold text-xl w-8">${i + 1}</div>
+  leaderboardEl.innerHTML = "";
 
-      <img src="${r.avatar}" class="w-12 h-12 rounded-full">
+  runners.forEach((r, i) => {
+    const rank = i + 1;
 
-      <div class="flex-1">
-        <div class="font-semibold">${r.name}</div>
-        <div class="text-sm text-gray-500">
-          Global rank: #${r.ranking || "-"}
-        </div>
-      </div>
+    const row = document.createElement("div");
+    row.className =
+      "bg-white rounded shadow p-4 flex items-center gap-4";
 
-      <div class="font-bold text-lg">
-        ${r.totalKm.toFixed(2)} km
-      </div>
-    </div>
-  `).join("");
+    if (rank === 1) row.classList.add("ring-2", "ring-yellow-400");
+    if (rank === 2) row.classList.add("ring-2", "ring-gray-400");
+    if (rank === 3) row.classList.add("ring-2", "ring-orange-400");
+
+    /* Rank badge */
+    const rankEl = document.createElement("div");
+    rankEl.className = "font-bold text-xl w-8 text-center";
+
+    if (rank === 1) rankEl.textContent = "🥇";
+    else if (rank === 2) rankEl.textContent = "🥈";
+    else if (rank === 3) rankEl.textContent = "🥉";
+    else rankEl.textContent = rank;
+
+    /* Avatar */
+    const avatar = document.createElement("img");
+    avatar.src = r.avatar;
+    avatar.alt = "";
+    avatar.className = "w-12 h-12 rounded-full";
+    avatar.loading = "lazy";
+
+    /* Name + whitelist icon + global rank */
+    const info = document.createElement("div");
+    info.className = "flex-1";
+
+    const nameRow = document.createElement("div");
+    nameRow.className = "font-semibold flex items-center gap-1";
+
+    const nameEl = document.createElement("span");
+    nameEl.textContent = r.name;
+
+    nameRow.appendChild(nameEl);
+    
+    // 🛡️ Whitelist indicator
+    if (r.isCompetitive === false) {
+      const shield = document.createElement("span");
+      shield.textContent = "🛡️";
+      shield.title = "Không tính giải";
+      shield.className = "text-blue-500";
+      nameRow.appendChild(shield);
+    }
+
+    const globalRank = document.createElement("div");
+    globalRank.className = "text-sm text-gray-500";
+    globalRank.textContent =
+      `Global rank: #${r.ranking || "-"}`;
+
+    info.appendChild(nameRow);
+    info.appendChild(globalRank);
+
+    /* Distance */
+    const km = document.createElement("div");
+    km.className = "font-bold text-lg";
+    km.textContent = `${r.totalKm.toFixed(2)} km`;
+
+    row.appendChild(rankEl);
+    row.appendChild(avatar);
+    row.appendChild(info);
+    row.appendChild(km);
+
+    leaderboardEl.appendChild(row);
+  });
 }
+
+
 
 // Init
 renderEvents();

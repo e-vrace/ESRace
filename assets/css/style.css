@@ -1,3 +1,47 @@
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont;
 }
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.rank-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 14px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+.rank-1 {
+  background: #f2b705; /* gold */
+}
+
+.rank-2 {
+  background: #bfc3c7; /* silver */
+}
+
+.rank-3 {
+  background: #cd7f32; /* bronze */
+}
+
+.leaderboard-item.top-1 {
+  background: rgba(242, 183, 5, 0.08);
+}
+
+.leaderboard-item.top-2 {
+  background: rgba(191, 195, 199, 0.08);
+}
+
+.leaderboard-item.top-3 {
+  background: rgba(205, 127, 50, 0.08);
+}
